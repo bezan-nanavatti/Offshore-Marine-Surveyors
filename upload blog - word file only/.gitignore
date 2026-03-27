@@ -1,0 +1,4 @@
+# Word files are not committed — they are processed and moved to processed/
+*.docx
+*.doc
+processed/

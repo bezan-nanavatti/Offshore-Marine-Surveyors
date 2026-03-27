@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Legacy site – read-only reference, not part of the build
+    "Legacy/**",
   ]),
 ]);
 

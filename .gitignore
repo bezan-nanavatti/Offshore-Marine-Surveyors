@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# contact form & blog data (contains personal data — do not commit)
+/data/submissions.json
+/data/read-counts.json
+/data/admins.json
+
+# nightly publish logs
+/logs/*.log
+
+# word files in drop folder (processed by import-blog script)
+/upload blog - word file only/*.docx
+/upload blog - word file only/*.doc
+/upload blog - word file only/processed/
