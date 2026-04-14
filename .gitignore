@@ -45,6 +45,9 @@ next-env.d.ts
 /data/read-counts.json
 /data/admins.json
 
+# dashboard access notes (contains credentials — do not commit)
+/src/app/dashboard/opendash.md
+
 # nightly publish logs
 /logs/*.log
 
