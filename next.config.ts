@@ -28,19 +28,20 @@ const CSP_DIRECTIVES = [
   "default-src 'self'",
   // Next.js hydration + JSON-LD inline scripts.
   // React requires eval() in dev mode for call-stack reconstruction; never in prod.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // Cloudflare Turnstile script is loaded from challenges.cloudflare.com.
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   // Tailwind JIT + Next.js critical CSS + Google Fonts stylesheet
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Google Fonts glyphs + self-hosted fonts in /public
   "font-src 'self' https://fonts.gstatic.com",
   // Images from self, Base64 data URIs, blob: for canvas exports, any HTTPS
   "img-src 'self' data: blob: https:",
-  // XHR / fetch — same origin only (add analytics domains when needed)
-  "connect-src 'self'",
+  // XHR / fetch — same origin + Turnstile verification endpoint
+  "connect-src 'self' https://challenges.cloudflare.com",
   // Media — none needed for a marketing site
   "media-src 'none'",
-  // No iframes from any origin
-  "frame-src 'none'",
+  // Cloudflare Turnstile renders inside an iframe hosted on challenges.cloudflare.com
+  "frame-src https://challenges.cloudflare.com",
   // Prevent the site itself from being framed (belt-and-suspenders with X-Frame-Options)
   "frame-ancestors 'none'",
   // No Flash / Java plugins
@@ -129,6 +130,14 @@ const securityHeaders = [
     // headers.  Protects against cross-site leaks via <img>/<script> tags.
     key:   "Cross-Origin-Resource-Policy",
     value: "same-origin",
+  },
+
+  // ── Cross-domain policy ────────────────────────────────────────────────────
+  {
+    // Prevent Adobe Flash and PDF plugins from making cross-domain requests.
+    // Unnecessary for a modern site, but closes the door entirely.
+    key:   "X-Permitted-Cross-Domain-Policies",
+    value: "none",
   },
 
   // ── DNS prefetch ───────────────────────────────────────────────────────────

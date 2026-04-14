@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { m } from 'framer-motion';
 import {
   Phone,
@@ -179,7 +180,7 @@ const LIMITS = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-type FormErrors = Partial<Record<keyof typeof LIMITS | 'service', string>>;
+type FormErrors = Partial<Record<keyof typeof LIMITS | 'service' | 'captcha', string>>;
 
 function validate(form: {
   name: string; company: string; email: string;
@@ -238,6 +239,9 @@ export default function ContactPageClient() {
   const [errors, setErrors]       = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading]     = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileRef    = useRef<TurnstileInstance>(null);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target;
@@ -267,6 +271,13 @@ export default function ContactPageClient() {
       setErrors(validationErrors);
       return;
     }
+
+    // CAPTCHA check — only enforced when the site key is configured
+    if (turnstileSiteKey && !captchaToken) {
+      setErrors({ captcha: 'Please complete the security check before submitting.' });
+      return;
+    }
+
     setErrors({});
     setLoading(true);
 
@@ -275,13 +286,14 @@ export default function ContactPageClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name:     form.name,
-          company:  form.company,
-          email:    form.email,
-          phone:    fullPhone,
-          location: form.location,
-          service:  form.service,
-          message:  form.message,
+          name:         form.name,
+          company:      form.company,
+          email:        form.email,
+          phone:        fullPhone,
+          location:     form.location,
+          service:      form.service,
+          message:      form.message,
+          captchaToken: captchaToken || undefined,
         }),
       });
 
@@ -292,6 +304,9 @@ export default function ContactPageClient() {
 
       setSubmitted(true);
     } catch (err) {
+      // Invalidate the used/failed CAPTCHA token so the user must re-verify
+      setCaptchaToken('');
+      turnstileRef.current?.reset();
       setErrors({
         message:
           err instanceof Error
@@ -521,6 +536,28 @@ export default function ContactPageClient() {
                       </p>
                     </div>
                   </div>
+                  {/* ── Cloudflare Turnstile CAPTCHA ─────────────────── */}
+                  {turnstileSiteKey && (
+                    <div>
+                      <Turnstile
+                        ref={turnstileRef}
+                        siteKey={turnstileSiteKey}
+                        onSuccess={(token) => {
+                          setCaptchaToken(token);
+                          if (errors.captcha) {
+                            setErrors((prev) => ({ ...prev, captcha: undefined }));
+                          }
+                        }}
+                        onError={() => setCaptchaToken('')}
+                        onExpire={() => setCaptchaToken('')}
+                        options={{ theme: 'dark', size: 'flexible' }}
+                      />
+                      {errors.captcha && (
+                        <p className="mt-1 text-xs" style={{ color: '#FF6B35' }}>{errors.captcha}</p>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={loading}

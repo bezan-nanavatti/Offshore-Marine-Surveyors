@@ -106,14 +106,15 @@ const KNOWN_SERVICES = new Set([
 ]);
 
 interface ContactPayload {
-  name:     string;
-  company:  string;
-  email:    string;
-  phone:    string;
-  location: string;
-  service:  string;
-  message:  string;
-  website?: string; // honeypot
+  name:          string;
+  company:       string;
+  email:         string;
+  phone:         string;
+  location:      string;
+  service:       string;
+  message:       string;
+  website?:      string; // honeypot
+  captchaToken?: string; // Cloudflare Turnstile
 }
 
 function validate(body: ContactPayload): string | null {
@@ -294,6 +295,39 @@ async function sendEmails(
   });
 }
 
+// ─── Cloudflare Turnstile CAPTCHA verification ────────────────────────────────
+
+/**
+ * Verifies a Turnstile token with Cloudflare's siteverify API.
+ * Returns true if verification passes, false on failure or network error.
+ * If TURNSTILE_SECRET_KEY is not set, skips verification (dev fallback).
+ */
+async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    console.warn('[api/contact] TURNSTILE_SECRET_KEY not configured — skipping CAPTCHA verification');
+    return true;
+  }
+
+  const form = new FormData();
+  form.append('secret', secret);
+  form.append('response', token);
+  if (ip !== 'unknown') form.append('remoteip', ip);
+
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { success: boolean };
+    return data.success === true;
+  } catch (err) {
+    console.error('[api/contact] Turnstile siteverify request failed:', err);
+    return false;
+  }
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -329,6 +363,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true }); // Silent discard
   }
 
+  // CAPTCHA — verify Cloudflare Turnstile token (enforced when secret key is configured)
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    if (!body.captchaToken) {
+      return NextResponse.json({ error: 'CAPTCHA verification required.' }, { status: 422 });
+    }
+    const captchaOk = await verifyTurnstile(body.captchaToken, ip);
+    if (!captchaOk) {
+      console.warn(`[api/contact] CAPTCHA failed for IP ${ip}`);
+      return NextResponse.json(
+        { error: 'CAPTCHA verification failed. Please refresh and try again.' },
+        { status: 422 }
+      );
+    }
+  }
+
   const error = validate(body);
   if (error) {
     return NextResponse.json({ error }, { status: 422 });
@@ -355,5 +404,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error('[api/contact] Email send failed:', err);
   });
 
-  return NextResponse.json({ ok: true, id: submission.id });
+  return NextResponse.json(
+    { ok: true, id: submission.id },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

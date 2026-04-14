@@ -53,22 +53,51 @@ const BLOCKED_PREFIXES = [
   "/administrator",       // Joomla
   "/admin.php",
   "/phpmyadmin",
+  "/adminer",
   "/phpinfo.php",
   "/config.php",
+  "/setup.php",
+  "/install.php",
+  "/eval-stdin.php",
+  "/shell.php",
+  "/cmd.php",
   // VCS / CI artefacts
   "/.git",
   "/.github",
   "/.gitlab-ci",
+  "/.svn",
+  "/.hg",
   // Secret / config files
   "/.env",
+  "/.env.local",
+  "/.env.production",
+  "/.env.development",
+  "/.env.test",
   "/.htaccess",
   "/.htpasswd",
-  // Node internals (should never be reachable but block defensively)
+  // Dependency / build artefacts that should never be web-accessible
   "/node_modules",
+  "/npm-debug.log",
+  "/yarn-error.log",
+  "/yarn.lock",
+  // macOS / IDE metadata that can leak directory structure
+  "/.DS_Store",
+  "/.idea",
+  "/.vscode",
+  // Server diagnostic pages
+  "/server-status",
+  "/server-info",
+  "/console",
   // Common exploit probe paths
   "/cgi-bin",
   "/etc/passwd",
   "/proc/self",
+  // Backup file probes
+  "/backup",
+  "/bak",
+  "/old",
+  "/temp",
+  "/tmp",
 ] as const;
 
 // ─── Query-Parameter Allowlist ────────────────────────────────────────────────
